@@ -3,14 +3,28 @@ import Web3 from 'web3';
 import './App.css';
 import File from '../abis/File.json'
 
+
 const ipfsClient = require('ipfs-http-client')
 const ipfs = ipfsClient({host: 'ipfs.infura.io',port: 5001, protocol: 'https' })
+
+var accounts;
+var fileHash;
+var contract;
+var networkId;
+var networkData;
+var abi;
+var address;
+var id;
+
+
 
 class App extends Component {
   async componentWillMount(){
     //before render function
+    
     await this.loadWeb3()
     await this.loadBlockchainData()
+    
   }
   //get account
   //get network
@@ -40,42 +54,57 @@ class App extends Component {
     await window.ethereum.enable()
     //console.log(web3)
     
-   await window.web3.eth.getAccounts(function (error, result) {
-  if(result){
-    const accounts = result
-    this.setState({account: accounts[0]})
-    
-    console.log(accounts[0])}
-  else{console.log(error)}
-    }.bind(this));//error:this.setState is not function
+    await window.web3.eth.getAccounts(function (error, result) {
+      if(result){
+          accounts = result
+        //console.log(result)
+        this.setState({account: accounts[0]})
+        
+        //console.log(table[0])
+        //console.log(accounts[0])
+      }
+      else{console.log(error)}
+        }.bind(this));//error:this.setState is not function
     await window.ethereum.enable()
-    const networkId = await window.web3.eth.net.getId()
+     networkId = await window.web3.eth.net.getId()
     //console.log(networkId)
-    const networkData =  File.networks[networkId]
+     networkData =  File.networks[networkId]
     
-    console.log(networkData)
+    //console.log(networkData)
     if(networkData){
       //fetch contract
       await window.ethereum.enable()
-      const abi = File.abi
+       abi = File.abi
       //console.log(abi)
-      const address = networkData.address
-      console.log(address)
-      const contract =await window.web3.eth.Contract(abi,address)
+       address = networkData.address
+      //console.log(address)
+       contract =await window.web3.eth.Contract(abi,address)
       
       this.setState({contract})
       //console.log(contract)
-     const fileHash = await contract.methods.get().call()
-     
-     this.setState({fileHash})
+      
+      //fileHash = await contract.methods.get().call()
+      console.log(accounts[0])
+      fileHash = await contract.methods.get(accounts[0]).call()
+        //await contract.methods.setstate().call()
+      this.setState({fileHash})
       console.log(fileHash)
+
     }else{
       window.alert('smart contract not deployed to detected network!')
     }
-    
+
       
     
   }
+  async reload(){
+    fileHash = await contract.methods.get(accounts[0]).call()
+     //await contract.methods.setstate().call()
+    console.log(fileHash)
+  }
+
+
+  
   constructor(props){
     super(props);
     this.state={
@@ -93,6 +122,7 @@ captureFile = (event) => {
 
 //process file for ipfs
 const file = event.target.files[0]
+
 console.log(this.state.fileHash)
 
 const reader = new window.FileReader()
@@ -112,20 +142,37 @@ onSubmit = (event) => {
   //adding file to ipfs-infura
   ipfs.add(this.state.buffer,(error,result)=>{
     console.log('ipfs result',result)
-    const fileHash = result[0].hash
+     fileHash = result[0].hash
     //console.log(fileHash)
-    this.setState({fileHash})
+    //this.setState({fileHash})
     console.log(fileHash)
     if(error){
       console.error(error)
       return
     }
-    console.log('hi')
-    console.log(result[0])
-    this.state.contract.methods.set(result[0].hash).send({from: this.state.account}).then((r)=>{
-      console.log(result[0].hash)
-        return this.setState({fileHash: result[0].hash})
+
+    
+       //this.reload()
+
+      this.state.contract.methods.set(accounts[0],result[0].hash).send({ from: this.state.account }).then((r) => {
+      return this.setState({ fileHash: result[0].hash })
     })
+    
+  })
+  
+}
+//getid = (event) =>{
+  //event.preventDefault()
+  //const id = event.target.text
+  
+//}
+doctor = (event) =>{
+  event.preventDefault()
+  id = document.getElementById('pk')
+  //console.log('doctor')
+  console.log(id.value)
+  contract.methods.set(id.value,fileHash).send({from: this.state.account}).then((r)=>{
+    
   })
 }
   render() {
@@ -154,9 +201,10 @@ onSubmit = (event) => {
             <main role="main" className="col-lg-12 d-flex text-center">
               <div className="content mr-auto ml-auto">
                 <a
-                href="http://www.google.com"
+                href={`https://ipfs.infura.io/ipfs/${this.state.fileHash}`}
                 target="_blank"
                 rel="noopener noreferrer">
+                  
                   <img src={`https://ipfs.infura.io/ipfs/${this.state.fileHash}`} alt='' />
                   
                 </a>
@@ -164,6 +212,12 @@ onSubmit = (event) => {
                 <h2> Upload File</h2>
                 <form onSubmit={this.onSubmit}>
                   <input type='file' onChange={this.captureFile} />
+                  <input type='submit'  />
+                  </form>
+                  <p>&nbsp;</p>
+                  <h2> Add Access</h2>
+                <form onSubmit={this.doctor}>
+                  <input type = 'text' id = 'pk' name='id'/>
                   <input type='submit'  />
                   </form>
               </div>
